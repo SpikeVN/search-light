@@ -56,7 +56,8 @@ export const ColorEffect = GObject.registerClass(
     preload(path) {
       // set shader source
       this._source = getColorEffectShaderSource(path);
-      if (this._source) this.set_shader_source(this._source);
+      if (this._source && this.set_shader_source)
+        this.set_shader_source(this._source);
 
       this.update_enabled();
     }
@@ -128,7 +129,7 @@ export const ColorEffect = GObject.registerClass(
     }
 
     update_enabled() {
-      this.set_enabled(this.blend > 0 && this._static);
+      this.set_enabled(Boolean(this.set_shader_source && this.blend > 0 && this._static));
     }
 
     vfunc_paint_target(paint_node = null, paint_context = null) {

@@ -443,6 +443,7 @@ export default class SearchLightExt extends Extension {
       this._hiTimer.cancel(this._animSeq);
       this._animSeq = null;
     }
+    this.container.remove_style_class_name('has-query');
     this._acquire_ui();
 
     if (this._bgActor) {
@@ -492,6 +493,11 @@ export default class SearchLightExt extends Extension {
       return;
     }
 
+    if (this._animSeq) {
+      this._hiTimer.cancel(this._animSeq);
+      this._animSeq = null;
+    }
+    this.container.remove_style_class_name('has-query');
     this._release_ui();
     this._remove_events();
 
@@ -692,8 +698,22 @@ export default class SearchLightExt extends Extension {
     }
     Main.overview.hide = () => {
       this.mainContainer.opacity = 0;
-      Main.overview._hide();
+      Main.overview._hide.call(Main.overview);
     };
+    if (!Main.overview._show) {
+      Main.overview._show = Main.overview.show;
+    }
+    Main.overview.show = (...args) => {
+      this.hide();
+      return Main.overview._show.apply(Main.overview, args);
+    };
+    if (!Main.overview._showApps && Main.overview.showApps) {
+      Main.overview._showApps = Main.overview.showApps;
+      Main.overview.showApps = (...args) => {
+        this.hide();
+        return Main.overview._showApps.apply(Main.overview, args);
+      };
+    }
 
     this._queryDisplay();
 
@@ -735,6 +755,7 @@ export default class SearchLightExt extends Extension {
     this._textChangedEventId = this._search._text.connect(
       'text-changed',
       () => {
+        this.container.add_style_class_name('has-query');
         this.container.set_size(this.width, this.height);
         this.mainContainer.set_size(this.width, this.height);
         if (this._corners) {
@@ -790,6 +811,14 @@ export default class SearchLightExt extends Extension {
       Main.overview.hide = Main.overview._hide;
       Main.overview._hide = null;
     }
+    if (Main.overview._show) {
+      Main.overview.show = Main.overview._show;
+      Main.overview._show = null;
+    }
+    if (Main.overview._showApps) {
+      Main.overview.showApps = Main.overview._showApps;
+      Main.overview._showApps = null;
+    }
   }
 
   _updateCss(disable) {
@@ -832,6 +861,13 @@ export default class SearchLightExt extends Extension {
 
       styles.push(`#searchLight {${ss.join(' ')}}`);
       styles.push(`#searchLightBlurredBackground {${ss.join(' ')}}`);
+
+      {
+        let clr = this._style.rgba(this.border_color);
+        styles.push(
+          `#searchLightBox.has-query > StEntry, #searchLightBox.has-query > StEntry:focus { border-color: rgba(${clr}) !important; }`,
+        );
+      }
     }
 
     // ss.push(`\n background-image: url("${bg}");`);
@@ -948,6 +984,9 @@ export default class SearchLightExt extends Extension {
 
   _onOverviewShowing() {
     this._inOverview = true;
+    if (this._visible || this._entry) {
+      this.hide();
+    }
   }
 
   _onOverviewHidden() {
